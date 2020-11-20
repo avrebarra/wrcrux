@@ -20,22 +20,22 @@ const (
 	BImmediate
 )
 
-// Busway :nodoc:
-type Busway interface {
+// Wux :nodoc:
+type Wux interface {
 	io.Writer
 	io.Closer
 	AddWriter(writer io.Writer)
 	WriteRich(t Flag, b []byte) (n int, err error)
 }
 
-// Config :nodoc:
-type Config struct {
+// ConfigWux :nodoc:
+type ConfigWux struct {
 	BufferCapacity int
 }
 
-// ConcreteBusway :nodoc:
-type ConcreteBusway struct {
-	cfg     Config
+// ConcreteWux :nodoc:
+type ConcreteWux struct {
+	cfg     ConfigWux
 	writers atomic.Value
 
 	lock     sync.Mutex
@@ -44,13 +44,13 @@ type ConcreteBusway struct {
 	messages chan []byte
 }
 
-// New :nodoc:
-func New(cfg Config) Busway {
+// NewWux :nodoc:
+func NewWux(cfg ConfigWux) Wux {
 	if cfg.BufferCapacity == 0 {
 		cfg.BufferCapacity = defaultBufferCapacity
 	}
 
-	cb := &ConcreteBusway{
+	cb := &ConcreteWux{
 		messages: make(chan []byte, cfg.BufferCapacity),
 		lock:     sync.Mutex{},
 	}
@@ -73,13 +73,13 @@ func New(cfg Config) Busway {
 }
 
 // AddWriter :nodoc:
-func (cb *ConcreteBusway) AddWriter(writer io.Writer) {
+func (cb *ConcreteWux) AddWriter(writer io.Writer) {
 	newWriters := append(cb.writers.Load().([]io.Writer), writer)
 	cb.writers.Store(newWriters)
 }
 
 // WriteRich :nodoc:
-func (cb *ConcreteBusway) WriteRich(tag Flag, b []byte) (n int, err error) {
+func (cb *ConcreteWux) WriteRich(tag Flag, b []byte) (n int, err error) {
 	if cb.closable != nil {
 		err = fmt.Errorf("cannot write: closing")
 		return
@@ -103,18 +103,18 @@ func (cb *ConcreteBusway) WriteRich(tag Flag, b []byte) (n int, err error) {
 }
 
 // Write :nodoc:
-func (cb *ConcreteBusway) Write(b []byte) (n int, err error) {
+func (cb *ConcreteWux) Write(b []byte) (n int, err error) {
 	return cb.WriteRich(BNormal, b)
 }
 
 // Close :nodoc:
-func (cb *ConcreteBusway) Close() (err error) {
+func (cb *ConcreteWux) Close() (err error) {
 	cb.closable = make(chan bool)
 	<-cb.closable
 	return nil
 }
 
-func (cb *ConcreteBusway) flush(b []byte) (err error) {
+func (cb *ConcreteWux) flush(b []byte) (err error) {
 	for _, writer := range cb.writers.Load().([]io.Writer) {
 		var n int
 		n, err = writer.Write(b)

@@ -49,7 +49,7 @@ func TestBusway(t *testing.T) {
 	}
 
 	t.Run("ok", func(t *testing.T) {
-		bus := busway.New(busway.Config{})
+		bus := busway.NewWux(busway.ConfigWux{})
 		bus.AddWriter(fileWriter)
 
 		// untagged
@@ -78,7 +78,7 @@ func TestBusway(t *testing.T) {
 	})
 
 	t.Run("error write", func(t *testing.T) {
-		bus := busway.New(busway.Config{})
+		bus := busway.NewWux(busway.ConfigWux{})
 		bus.AddWriter(errorWriter)
 
 		// untagged
@@ -106,7 +106,7 @@ func TestBusway(t *testing.T) {
 	})
 
 	t.Run("error incomplete write", func(t *testing.T) {
-		bus := busway.New(busway.Config{})
+		bus := busway.NewWux(busway.ConfigWux{})
 		bus.AddWriter(zero)
 
 		// untagged
@@ -146,7 +146,7 @@ func TestInvalidFilePath(t *testing.T) {
 func BenchmarkWriter(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := busway.New(busway.Config{})
+	hello := busway.NewWux(busway.ConfigWux{})
 	hello.AddWriter(busway.File("hello.log"))
 
 	b.ReportAllocs()
@@ -162,7 +162,7 @@ func BenchmarkWriter(b *testing.B) {
 func BenchmarkWriteRich(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := busway.New(busway.Config{})
+	hello := busway.NewWux(busway.ConfigWux{})
 	hello.AddWriter(busway.File("hello.log"))
 
 	b.ReportAllocs()
@@ -178,7 +178,7 @@ func BenchmarkWriteRich(b *testing.B) {
 func BenchmarkWriteRichImmediate(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := busway.New(busway.Config{})
+	hello := busway.NewWux(busway.ConfigWux{})
 	hello.AddWriter(busway.File("hello.log"))
 
 	b.ReportAllocs()
