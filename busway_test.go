@@ -2,6 +2,7 @@ package busway_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -37,7 +38,9 @@ func (writer *zeroWriter) Write(buffer []byte) (int, error) {
 	return 0, nil
 }
 
-func TestBasicLogging(t *testing.T) {
+func TestBasic(t *testing.T) {
+	var err error
+
 	fileWriter := busway.File("hello.log")
 	defer os.Remove("hello.log")
 	defer fileWriter.Close()
@@ -58,22 +61,48 @@ func TestBasicLogging(t *testing.T) {
 		Writer: fileWriter3,
 	}
 
-	helloitf := busway.New(busway.Config{})
-	hello, _ := helloitf.(*busway.ConcreteBusway)
+	hello := busway.New(busway.Config{})
 
 	hello.AddWriter(fileWriter)
 	hello.AddWriter(errorWriter)
 	hello.AddWriter(zero)
 
-	hello.Info(
+	// untagged
+	_, err = hello.WriteRich(0, []byte(fmt.Sprintf(
 		"Info message %d %f %f %s",
 		1,
 		float32(3.14),
 		3.14,
 		"some text",
-	)
+	)))
+	if err != nil {
+		panic(err)
+	}
 
-	hello.Error("Oh noes %s", "Something went wrong")
+	// immediate
+	_, err = hello.WriteRich(busway.TImmedate, []byte(fmt.Sprintf(
+		"Info message %d %f %f %s",
+		1,
+		float32(3.14),
+		3.14,
+		"some text",
+	)))
+	if err != nil {
+		panic(err)
+	}
+
+	// writer
+	_, err = hello.Write([]byte(fmt.Sprintf(
+		"Info message %d %f %f %s",
+		1,
+		float32(3.14),
+		3.14,
+		"some text",
+	)))
+	if err != nil {
+		panic(err)
+	}
+
 	time.Sleep(500 * time.Millisecond)
 }
 
@@ -86,11 +115,10 @@ func TestInvalidFilePath(t *testing.T) {
 	busway.File("")
 }
 
-func BenchmarkInfo(b *testing.B) {
+func BenchmarkWriter(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	helloitf := busway.New(busway.Config{})
-	hello, _ := helloitf.(*busway.ConcreteBusway)
+	hello := busway.New(busway.Config{})
 	hello.AddWriter(busway.File("hello.log"))
 
 	b.ReportAllocs()
@@ -98,7 +126,39 @@ func BenchmarkInfo(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			hello.Info("Hello World")
+			hello.Write([]byte("Hello World"))
+		}
+	})
+}
+
+func BenchmarkWriteRich(b *testing.B) {
+	defer os.Remove("hello.log")
+
+	hello := busway.New(busway.Config{})
+	hello.AddWriter(busway.File("hello.log"))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			hello.WriteRich(0, []byte("Hello World"))
+		}
+	})
+}
+
+func BenchmarkWriteRichImmediate(b *testing.B) {
+	defer os.Remove("hello.log")
+
+	hello := busway.New(busway.Config{})
+	hello.AddWriter(busway.File("hello.log"))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			hello.WriteRich(busway.TImmedate, []byte("Hello World"))
 		}
 	})
 }
