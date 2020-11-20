@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/akyoto/assert"
 	"github.com/avrebarra/busway"
@@ -68,7 +67,7 @@ func TestBasic(t *testing.T) {
 	hello.AddWriter(zero)
 
 	// untagged
-	_, err = hello.WriteRich(0, []byte(fmt.Sprintf(
+	_, err = hello.WriteRich(busway.BNormal, []byte(fmt.Sprintf(
 		"Info message %d %f %f %s",
 		1,
 		float32(3.14),
@@ -76,34 +75,29 @@ func TestBasic(t *testing.T) {
 		"some text",
 	)))
 	if err != nil {
-		panic(err)
+		t.Error("case failed")
 	}
 
 	// immediate
-	_, err = hello.WriteRich(busway.TImmedate, []byte(fmt.Sprintf(
-		"Info message %d %f %f %s",
-		1,
-		float32(3.14),
-		3.14,
-		"some text",
-	)))
+	_, err = hello.WriteRich(busway.BImmediate, []byte("sample data"))
 	if err != nil {
-		panic(err)
+		t.Error("case failed")
 	}
 
 	// writer
-	_, err = hello.Write([]byte(fmt.Sprintf(
-		"Info message %d %f %f %s",
-		1,
-		float32(3.14),
-		3.14,
-		"some text",
-	)))
+	_, err = hello.Write([]byte("sample data"))
 	if err != nil {
-		panic(err)
+		t.Error("case failed")
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	// close
+	hello.Close()
+
+	// write after close
+	_, err = hello.Write([]byte("sample data"))
+	if err == nil {
+		t.Error("case failed")
+	}
 }
 
 func TestInvalidFilePath(t *testing.T) {
@@ -158,7 +152,7 @@ func BenchmarkWriteRichImmediate(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			hello.WriteRich(busway.TImmedate, []byte("Hello World"))
+			hello.WriteRich(busway.BImmediate, []byte("Hello World"))
 		}
 	})
 }

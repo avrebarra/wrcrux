@@ -7,16 +7,17 @@ import (
 	"sync/atomic"
 )
 
-type Tag int
+// Flag :nodoc:
+type Flag int
 
 const (
-	// How many log messages can be buffered until the call blocks
-	bufferCapacity = 1024
+	defaultBufferCapacity = 1024
 )
 
+// These flag defines the flushing priorities
 const (
-	TNone Tag = iota
-	TImmedate
+	BNormal Flag = 1 << iota
+	BImmediate
 )
 
 // Busway :nodoc:
@@ -24,16 +25,15 @@ type Busway interface {
 	io.Writer
 	io.Closer
 	AddWriter(writer io.Writer)
-	WriteRich(t Tag, b []byte) (n int, err error)
+	WriteRich(t Flag, b []byte) (n int, err error)
 }
 
 // Config :nodoc:
 type Config struct {
+	BufferCapacity int
 }
 
-// ConcreteBusway is a log data source used for a specific part of your application,
-// e.g. "web", "database", "api" or other categories. It can be connected
-// to multiple writers.
+// ConcreteBusway :nodoc:
 type ConcreteBusway struct {
 	cfg     Config
 	writers atomic.Value
@@ -44,10 +44,14 @@ type ConcreteBusway struct {
 	messages chan []byte
 }
 
-// New creates a new Busway.
+// New :nodoc:
 func New(cfg Config) Busway {
+	if cfg.BufferCapacity == 0 {
+		cfg.BufferCapacity = defaultBufferCapacity
+	}
+
 	cb := &ConcreteBusway{
-		messages: make(chan []byte, bufferCapacity),
+		messages: make(chan []byte, cfg.BufferCapacity),
 		lock:     sync.Mutex{},
 	}
 
@@ -56,7 +60,7 @@ func New(cfg Config) Busway {
 	go func() {
 		for msg := range cb.messages {
 			cb.lock.Lock()
-			cb.write(msg)
+			cb.flush(msg)
 			cb.lock.Unlock()
 
 			if len(cb.messages) == 0 && cb.closable != nil {
@@ -68,23 +72,23 @@ func New(cfg Config) Busway {
 	return cb
 }
 
-// AddWriter adds an output to the cb.
+// AddWriter :nodoc:
 func (cb *ConcreteBusway) AddWriter(writer io.Writer) {
 	newWriters := append(cb.writers.Load().([]io.Writer), writer)
 	cb.writers.Store(newWriters)
 }
 
-// WriteRich is writer with richer interface to control writing behavior
-func (cb *ConcreteBusway) WriteRich(tag Tag, b []byte) (n int, err error) {
+// WriteRich :nodoc:
+func (cb *ConcreteBusway) WriteRich(tag Flag, b []byte) (n int, err error) {
 	if cb.closable != nil {
 		err = fmt.Errorf("cannot write: closing")
 		return
 	}
 
 	switch true {
-	case tag == TImmedate:
+	case tag&BImmediate == 0:
 		cb.lock.Lock()
-		cb.write(b)
+		cb.flush(b)
 		cb.lock.Unlock()
 		break
 	default:
@@ -94,24 +98,19 @@ func (cb *ConcreteBusway) WriteRich(tag Tag, b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-// Write implements the io.Writer interface.
-// As long as buffer capacity is available,
-// this call will not block and have O(1) behaviour,
-// regardless of how many writers are used.
+// Write :nodoc:
 func (cb *ConcreteBusway) Write(b []byte) (n int, err error) {
-	cb.WriteRich(0, b)
-	return len(b), nil
+	return cb.WriteRich(BNormal, b)
 }
 
-// Close implements the io.Closer interface.
+// Close :nodoc:
 func (cb *ConcreteBusway) Close() (err error) {
 	cb.closable = make(chan bool)
 	<-cb.closable
 	return nil
 }
 
-// write writes the given slice of bytes to all registered writers immediately.
-func (cb *ConcreteBusway) write(b []byte) (err error) {
+func (cb *ConcreteBusway) flush(b []byte) (err error) {
 	for _, writer := range cb.writers.Load().([]io.Writer) {
 		var n int
 		n, err = writer.Write(b)
