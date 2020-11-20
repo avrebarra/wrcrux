@@ -88,8 +88,11 @@ func (cb *ConcreteBusway) WriteRich(tag Flag, b []byte) (n int, err error) {
 	switch true {
 	case tag&BImmediate == 0:
 		cb.lock.Lock()
-		cb.flush(b)
-		cb.lock.Unlock()
+		defer cb.lock.Unlock()
+		if cb.flush(b); err != nil {
+			return
+		}
+
 		break
 	default:
 		cb.messages <- b
