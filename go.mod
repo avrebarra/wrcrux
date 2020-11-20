@@ -1,5 +1,3 @@
-module github.com/avrebarra/busway
+module github.com/avrebarra/wrcrux
 
 go 1.12
-
-require github.com/akyoto/assert v0.2.3
