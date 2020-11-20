@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 )
 
-// Flag :nodoc:
-type Flag int
+// Mode :nodoc:
+type Mode int
 
 const (
 	defaultBufferCapacity = 1024
@@ -16,26 +16,27 @@ const (
 
 // These flag defines the flushing priorities
 const (
-	BNormal Flag = 1 << iota
-	BImmediate
+	Buffered Mode = 1 << iota
+	Immediate
 )
 
-// Wux :nodoc:
-type Wux interface {
+// Wrcrux :nodoc:
+type Wrcrux interface {
 	io.Writer
 	io.Closer
 	AddWriter(writer io.Writer)
-	WriteRich(t Flag, b []byte) (n int, err error)
+	XWrite(t Mode, b []byte) (n int, err error)
 }
 
-// ConfigWux :nodoc:
-type ConfigWux struct {
+// Config :nodoc:
+type Config struct {
 	BufferCapacity int
+	DefaultMode    Mode
 }
 
-// ConcreteWux :nodoc:
-type ConcreteWux struct {
-	cfg     ConfigWux
+// ConcreteWrcrux :nodoc:
+type ConcreteWrcrux struct {
+	cfg     Config
 	writers atomic.Value
 
 	lock     sync.Mutex
@@ -45,12 +46,15 @@ type ConcreteWux struct {
 }
 
 // New :nodoc:
-func New(cfg ConfigWux) Wux {
+func New(cfg Config) Wrcrux {
 	if cfg.BufferCapacity == 0 {
 		cfg.BufferCapacity = defaultBufferCapacity
 	}
+	if cfg.DefaultMode == 0 {
+		cfg.DefaultMode = Buffered
+	}
 
-	cb := &ConcreteWux{
+	cb := &ConcreteWrcrux{
 		messages: make(chan []byte, cfg.BufferCapacity),
 		lock:     sync.Mutex{},
 	}
@@ -73,20 +77,20 @@ func New(cfg ConfigWux) Wux {
 }
 
 // AddWriter :nodoc:
-func (cb *ConcreteWux) AddWriter(writer io.Writer) {
+func (cb *ConcreteWrcrux) AddWriter(writer io.Writer) {
 	newWriters := append(cb.writers.Load().([]io.Writer), writer)
 	cb.writers.Store(newWriters)
 }
 
-// WriteRich :nodoc:
-func (cb *ConcreteWux) WriteRich(tag Flag, b []byte) (n int, err error) {
+// XWrite :nodoc:
+func (cb *ConcreteWrcrux) XWrite(tag Mode, b []byte) (n int, err error) {
 	if cb.closable != nil {
 		err = fmt.Errorf("cannot write: closing")
 		return
 	}
 
 	switch true {
-	case tag == BImmediate:
+	case tag == Immediate:
 		cb.lock.Lock()
 		if err = cb.flush(b); err != nil {
 			cb.lock.Unlock()
@@ -103,18 +107,18 @@ func (cb *ConcreteWux) WriteRich(tag Flag, b []byte) (n int, err error) {
 }
 
 // Write :nodoc:
-func (cb *ConcreteWux) Write(b []byte) (n int, err error) {
-	return cb.WriteRich(BNormal, b)
+func (cb *ConcreteWrcrux) Write(b []byte) (n int, err error) {
+	return cb.XWrite(Buffered, b)
 }
 
 // Close :nodoc:
-func (cb *ConcreteWux) Close() (err error) {
+func (cb *ConcreteWrcrux) Close() (err error) {
 	cb.closable = make(chan bool)
 	<-cb.closable
 	return nil
 }
 
-func (cb *ConcreteWux) flush(b []byte) (err error) {
+func (cb *ConcreteWrcrux) flush(b []byte) (err error) {
 	for _, writer := range cb.writers.Load().([]io.Writer) {
 		var n int
 		n, err = writer.Write(b)

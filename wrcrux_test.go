@@ -11,15 +11,15 @@ import (
 )
 
 func ExampleUsage() {
-	wx := wrcrux.New(wrcrux.ConfigWux{})
+	wx := wrcrux.New(wrcrux.Config{})
 
 	wx.AddWriter(os.Stdout)
 	wx.AddWriter(os.Stdout)
 	wx.AddWriter(os.Stdout)
 
 	wx.Write([]byte("data"))
-	wx.WriteRich(wrcrux.BImmediate, []byte("data sync"))
-	wx.WriteRich(wrcrux.BNormal, []byte("data unbuffered"))
+	wx.XWrite(wrcrux.Immediate, []byte("data sync"))
+	wx.XWrite(wrcrux.Buffered, []byte("data unbuffered"))
 }
 
 // filewriter provides a simple interface to create a log file.
@@ -71,16 +71,16 @@ func TestBasic(t *testing.T) {
 	}
 
 	t.Run("ok", func(t *testing.T) {
-		bus := wrcrux.New(wrcrux.ConfigWux{})
+		bus := wrcrux.New(wrcrux.Config{})
 		bus.AddWriter(fileWriter)
 
 		// untagged
-		if _, err = bus.WriteRich(wrcrux.BNormal, []byte(datastr)); err != nil {
+		if _, err = bus.XWrite(wrcrux.Buffered, []byte(datastr)); err != nil {
 			t.Fatal("case failed")
 		}
 
 		// immediate
-		if _, err = bus.WriteRich(wrcrux.BImmediate, []byte(datastr)); err != nil {
+		if _, err = bus.XWrite(wrcrux.Immediate, []byte(datastr)); err != nil {
 			t.Fatal("case failed")
 		}
 
@@ -100,16 +100,16 @@ func TestBasic(t *testing.T) {
 	})
 
 	t.Run("error write", func(t *testing.T) {
-		bus := wrcrux.New(wrcrux.ConfigWux{})
+		bus := wrcrux.New(wrcrux.Config{})
 		bus.AddWriter(errorWriter)
 
 		// untagged
-		if _, err = bus.WriteRich(wrcrux.BNormal, []byte(datastr)); err != nil {
+		if _, err = bus.XWrite(wrcrux.Buffered, []byte(datastr)); err != nil {
 			t.Fatal("case failed")
 		}
 
 		// immediate
-		if _, err = bus.WriteRich(wrcrux.BImmediate, []byte(datastr)); err == nil {
+		if _, err = bus.XWrite(wrcrux.Immediate, []byte(datastr)); err == nil {
 			t.Fatal("case failed")
 		}
 
@@ -128,16 +128,16 @@ func TestBasic(t *testing.T) {
 	})
 
 	t.Run("error incomplete write", func(t *testing.T) {
-		bus := wrcrux.New(wrcrux.ConfigWux{})
+		bus := wrcrux.New(wrcrux.Config{})
 		bus.AddWriter(zero)
 
 		// untagged
-		if _, err = bus.WriteRich(wrcrux.BNormal, []byte(datastr)); err != nil {
+		if _, err = bus.XWrite(wrcrux.Buffered, []byte(datastr)); err != nil {
 			t.Fatal("case failed")
 		}
 
 		// immediate
-		if _, err = bus.WriteRich(wrcrux.BImmediate, []byte(datastr)); err == nil {
+		if _, err = bus.XWrite(wrcrux.Immediate, []byte(datastr)); err == nil {
 			t.Fatal("case failed")
 		}
 
@@ -170,7 +170,7 @@ func TestInvalidFilePath(t *testing.T) {
 func BenchmarkWriter(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := wrcrux.New(wrcrux.ConfigWux{})
+	hello := wrcrux.New(wrcrux.Config{})
 	hello.AddWriter(filewriter("hello.log"))
 
 	b.ReportAllocs()
@@ -183,10 +183,10 @@ func BenchmarkWriter(b *testing.B) {
 	})
 }
 
-func BenchmarkWriteRich(b *testing.B) {
+func BenchmarkXWrite(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := wrcrux.New(wrcrux.ConfigWux{})
+	hello := wrcrux.New(wrcrux.Config{})
 	hello.AddWriter(filewriter("hello.log"))
 
 	b.ReportAllocs()
@@ -194,15 +194,15 @@ func BenchmarkWriteRich(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			hello.WriteRich(0, []byte("Hello World"))
+			hello.XWrite(0, []byte("Hello World"))
 		}
 	})
 }
 
-func BenchmarkWriteRichImmediate(b *testing.B) {
+func BenchmarkXWriteImmediate(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := wrcrux.New(wrcrux.ConfigWux{})
+	hello := wrcrux.New(wrcrux.Config{})
 	hello.AddWriter(filewriter("hello.log"))
 
 	b.ReportAllocs()
@@ -210,7 +210,7 @@ func BenchmarkWriteRichImmediate(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			hello.WriteRich(wrcrux.BImmediate, []byte("Hello World"))
+			hello.XWrite(wrcrux.Immediate, []byte("Hello World"))
 		}
 	})
 }
