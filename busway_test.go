@@ -20,12 +20,7 @@ type writerWithError struct {
 }
 
 func (writer *writerWithError) Write(buffer []byte) (int, error) {
-	if writer.countWrites == writer.successfulWrites {
-		return 0, errors.New("Artificial error")
-	}
-
-	writer.countWrites++
-	return writer.Write(buffer)
+	return 0, errors.New("Artificial error")
 }
 
 // zeroWriter always writes zero bytes.
@@ -37,67 +32,106 @@ func (writer *zeroWriter) Write(buffer []byte) (int, error) {
 	return 0, nil
 }
 
-func TestBasic(t *testing.T) {
+func TestBusway(t *testing.T) {
 	var err error
+	datastr := fmt.Sprintf("Info message %d %f %f %s", 1, float32(3.14), 3.14, "some text")
 
 	fileWriter := busway.File("hello.log")
 	defer os.Remove("hello.log")
 	defer fileWriter.Close()
 
-	fileWriter2 := busway.File("hello2.log")
-	defer os.Remove("hello2.log")
-	defer fileWriter2.Close()
-
-	fileWriter3 := busway.File("hello3.log")
-	defer os.Remove("hello3.log")
-	defer fileWriter3.Close()
-
 	errorWriter := &writerWithError{
-		Writer: fileWriter2,
+		Writer: fileWriter,
 	}
 
 	zero := &zeroWriter{
-		Writer: fileWriter3,
+		Writer: fileWriter,
 	}
 
-	hello := busway.New(busway.Config{})
+	t.Run("ok", func(t *testing.T) {
+		bus := busway.New(busway.Config{})
+		bus.AddWriter(fileWriter)
 
-	hello.AddWriter(fileWriter)
-	hello.AddWriter(errorWriter)
-	hello.AddWriter(zero)
+		// untagged
+		if _, err = bus.WriteRich(busway.BNormal, []byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
 
-	// untagged
-	_, err = hello.WriteRich(busway.BNormal, []byte(fmt.Sprintf(
-		"Info message %d %f %f %s",
-		1,
-		float32(3.14),
-		3.14,
-		"some text",
-	)))
-	if err != nil {
-		t.Error("case failed")
-	}
+		// immediate
+		if _, err = bus.WriteRich(busway.BImmediate, []byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
 
-	// immediate
-	_, err = hello.WriteRich(busway.BImmediate, []byte("sample data"))
-	if err != nil {
-		t.Error("case failed")
-	}
+		// writer
+		if _, err = bus.Write([]byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
 
-	// writer
-	_, err = hello.Write([]byte("sample data"))
-	if err != nil {
-		t.Error("case failed")
-	}
+		// close
+		bus.Close()
 
-	// close
-	hello.Close()
+		// write after close
+		if _, err = bus.Write([]byte(datastr)); err == nil {
+			fmt.Println(err)
+			t.Fatal("case failed")
+		}
+	})
 
-	// write after close
-	_, err = hello.Write([]byte("sample data"))
-	if err == nil {
-		t.Error("case failed")
-	}
+	t.Run("error write", func(t *testing.T) {
+		bus := busway.New(busway.Config{})
+		bus.AddWriter(errorWriter)
+
+		// untagged
+		if _, err = bus.WriteRich(busway.BNormal, []byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
+
+		// immediate
+		if _, err = bus.WriteRich(busway.BImmediate, []byte(datastr)); err == nil {
+			t.Fatal("case failed")
+		}
+
+		// writer
+		if _, err = bus.Write([]byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
+
+		// close
+		bus.Close()
+
+		// write after close
+		if _, err = bus.Write([]byte(datastr)); err == nil {
+			t.Fatal("case failed")
+		}
+	})
+
+	t.Run("error incomplete write", func(t *testing.T) {
+		bus := busway.New(busway.Config{})
+		bus.AddWriter(zero)
+
+		// untagged
+		if _, err = bus.WriteRich(busway.BNormal, []byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
+
+		// immediate
+		if _, err = bus.WriteRich(busway.BImmediate, []byte(datastr)); err == nil {
+			t.Fatal("case failed")
+		}
+
+		// writer
+		if _, err = bus.Write([]byte(datastr)); err != nil {
+			t.Fatal("case failed")
+		}
+
+		// close
+		bus.Close()
+
+		// write after close
+		if _, err = bus.Write([]byte(datastr)); err == nil {
+			t.Fatal("case failed")
+		}
+	})
 }
 
 func TestInvalidFilePath(t *testing.T) {
