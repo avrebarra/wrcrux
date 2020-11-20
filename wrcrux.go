@@ -44,8 +44,8 @@ type ConcreteWux struct {
 	messages chan []byte
 }
 
-// NewWux :nodoc:
-func NewWux(cfg ConfigWux) Wux {
+// New :nodoc:
+func New(cfg ConfigWux) Wux {
 	if cfg.BufferCapacity == 0 {
 		cfg.BufferCapacity = defaultBufferCapacity
 	}

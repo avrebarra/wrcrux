@@ -10,11 +10,22 @@ import (
 	"github.com/avrebarra/wrcrux"
 )
 
+func ExampleUsage() {
+	wx := wrcrux.New(wrcrux.ConfigWux{})
+
+	wx.AddWriter(os.Stdout)
+	wx.AddWriter(os.Stdout)
+	wx.AddWriter(os.Stdout)
+
+	wx.Write([]byte("data"))
+	wx.WriteRich(wrcrux.BImmediate, []byte("data sync"))
+	wx.WriteRich(wrcrux.BNormal, []byte("data unbuffered"))
+}
+
 // filewriter provides a simple interface to create a log file.
 // The given file path must be writable, otherwise it will panic.
 func filewriter(path string) *os.File {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +54,7 @@ func (writer *zeroWriter) Write(buffer []byte) (int, error) {
 	return 0, nil
 }
 
-func TestBusway(t *testing.T) {
+func TestBasic(t *testing.T) {
 	var err error
 	datastr := fmt.Sprintf("Info message %d %f %f %s", 1, float32(3.14), 3.14, "some text")
 
@@ -60,7 +71,7 @@ func TestBusway(t *testing.T) {
 	}
 
 	t.Run("ok", func(t *testing.T) {
-		bus := wrcrux.NewWux(wrcrux.ConfigWux{})
+		bus := wrcrux.New(wrcrux.ConfigWux{})
 		bus.AddWriter(fileWriter)
 
 		// untagged
@@ -89,7 +100,7 @@ func TestBusway(t *testing.T) {
 	})
 
 	t.Run("error write", func(t *testing.T) {
-		bus := wrcrux.NewWux(wrcrux.ConfigWux{})
+		bus := wrcrux.New(wrcrux.ConfigWux{})
 		bus.AddWriter(errorWriter)
 
 		// untagged
@@ -117,7 +128,7 @@ func TestBusway(t *testing.T) {
 	})
 
 	t.Run("error incomplete write", func(t *testing.T) {
-		bus := wrcrux.NewWux(wrcrux.ConfigWux{})
+		bus := wrcrux.New(wrcrux.ConfigWux{})
 		bus.AddWriter(zero)
 
 		// untagged
@@ -159,7 +170,7 @@ func TestInvalidFilePath(t *testing.T) {
 func BenchmarkWriter(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := wrcrux.NewWux(wrcrux.ConfigWux{})
+	hello := wrcrux.New(wrcrux.ConfigWux{})
 	hello.AddWriter(filewriter("hello.log"))
 
 	b.ReportAllocs()
@@ -175,7 +186,7 @@ func BenchmarkWriter(b *testing.B) {
 func BenchmarkWriteRich(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := wrcrux.NewWux(wrcrux.ConfigWux{})
+	hello := wrcrux.New(wrcrux.ConfigWux{})
 	hello.AddWriter(filewriter("hello.log"))
 
 	b.ReportAllocs()
@@ -191,7 +202,7 @@ func BenchmarkWriteRich(b *testing.B) {
 func BenchmarkWriteRichImmediate(b *testing.B) {
 	defer os.Remove("hello.log")
 
-	hello := wrcrux.NewWux(wrcrux.ConfigWux{})
+	hello := wrcrux.New(wrcrux.ConfigWux{})
 	hello.AddWriter(filewriter("hello.log"))
 
 	b.ReportAllocs()
